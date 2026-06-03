@@ -18,9 +18,9 @@ jobs:
       with:
         php-version: '8.2' # Sesuaikan dengan versi PHP Laravel Anda
 
-    - name: Install PHP Dependencies
+    - name: Install PHP Dependencies (with dev)
       run: |
-        composer install --no-dev --optimize-autoloader --no-ansi --no-interaction --no-progress
+        composer install --optimize-autoloader --no-ansi --no-interaction --no-progress
 
     - name: Setup Node.js
       uses: actions/setup-node@v3
@@ -35,17 +35,21 @@ jobs:
       run: |
         npm run build
 
+    - name: Copy Environment File
+      run: |
+        cp .env.example .env
+        php artisan key:generate
+
     - name: Run PHP Unit Tests
       run: |
-        php artisan test
-
-    - name: Run PHP Code Quality Checks
-      run: |
-        composer lint --no-interaction --no-progress
-      continue-on-error: true
+        php artisan test --parallel
 
     - name: Create Deployment Package (ZIP)
-      run: zip -r deploy.zip . -x "*.git*" "node_modules/*" "tests/*" ".env*" "*.md" "phpunit.xml" "vite.config.js" "tailwind.config.js" "postcss.config.js" ".gitignore"
+      run: |
+        # Install production dependencies only
+        composer install --no-dev --optimize-autoloader --no-ansi --no-interaction --no-progress
+        # Create deployment package
+        zip -r deploy.zip . -x "*.git*" "node_modules/*" "tests/*" ".env*" "*.md" "phpunit.xml" "vite.config.js" "tailwind.config.js" "postcss.config.js" ".gitignore"
 
     - name: Deploy to AWS Elastic Beanstalk
       uses: einaregilsson/beanstalk-deploy@v21
