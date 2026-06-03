@@ -1,0 +1,59 @@
+name: Deploy Laravel to Elastic Beanstalk
+
+on:
+  push:
+    branches:
+      - main # Skrip berjalan setiap kali Anda push ke branch main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v3
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2' # Sesuaikan dengan versi PHP Laravel Anda
+
+    - name: Install PHP Dependencies
+      run: |
+        composer install --no-dev --optimize-autoloader --no-ansi --no-interaction --no-progress
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install Frontend Dependencies
+      run: |
+        npm install
+
+    - name: Build Frontend Assets
+      run: |
+        npm run build
+
+    - name: Run PHP Unit Tests
+      run: |
+        php artisan test
+
+    - name: Run PHP Code Quality Checks
+      run: |
+        composer lint --no-interaction --no-progress
+      continue-on-error: true
+
+    - name: Create Deployment Package (ZIP)
+      run: zip -r deploy.zip . -x "*.git*" "node_modules/*" "tests/*" ".env*" "*.md" "phpunit.xml" "vite.config.js" "tailwind.config.js" "postcss.config.js" ".gitignore"
+
+    - name: Deploy to AWS Elastic Beanstalk
+      uses: einaregilsson/beanstalk-deploy@v21
+      with:
+        aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        application_name: 'TUBESCC-env' # Ganti dengan nama Aplikasi Beanstalk Anda
+        environment_name: 'TUBESCC'       # Ganti dengan nama Environment Beanstalk Anda
+        version_label: 'deploy-${{ github.sha }}'
+        region: 'ap-southeast-2'                       # Ganti sesuai Region AWS Anda (misal: ap-southeast-1 untuk Singapore)
+        deployment_package: deploy.zip
